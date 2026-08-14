@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="家稳云图：中国家庭风险缓冲与 AI 理财服务平台。轻量建档，生成家庭风险评分、缓冲方案与行动清单。" />
+    <title>家稳云图 | AI家庭财务风险缓冲平台</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell is-welcome">
+      <header class="topbar">
+        <button class="back-button" id="back-button" type="button" aria-label="返回上一个界面">‹</button>
+        <div>
+          <p class="eyebrow">家庭财务 AI Agent</p>
+          <h1>家稳云图</h1>
+        </div>
+        <button class="icon-button" type="button" aria-label="查看合规边界" data-view-target="report">!</button>
+      </header>
+
+      <section class="view welcome-view active" id="welcome" aria-labelledby="welcome-title">
+        <div class="welcome-card">
+          <div class="brand-lockup">
+            <img class="brand-logo" src="logo.png?v=1" alt="家稳云图 中国家庭风险缓冲与AI理财服务平台" />
+          </div>
+          <div class="welcome-copy">
+            <p class="eyebrow">AI家庭财务管家</p>
+            <h2 id="welcome-title">看清家庭财务风险，得到可执行建议</h2>
+            <p>用一次轻量建档，生成家庭风险评分、缓冲方案和行动清单。</p>
+          </div>
+          <ol class="how-steps" aria-label="使用步骤">
+            <li><span>1</span>填写家庭问卷</li>
+            <li><span>2</span>生成风险诊断</li>
+            <li><span>3</span>领取行动清单</li>
+          </ol>
+          <div class="welcome-stats">
+            <div><strong>6</strong><span>诊断维度</span></div>
+            <div><strong>4</strong><span>缓冲层级</span></div>
+            <div><strong>7x24</strong><span>AI 顾问</span></div>
+          </div>
+          <div class="welcome-actions">
+            <button class="primary-button" type="button" data-view-target="profile">开始家庭财务体检</button>
+            <button class="quiet-button" type="button" data-view-target="demo">查看示例预览</button>
+          </div>
+          <ul class="trust-chips" aria-label="产品特点">
+            <li>纯本地测算</li>
+            <li>无需注册</li>
+            <li>AI 顾问 7x24</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="view demo-view" id="demo" aria-labelledby="demo-title">
+        <div class="demo-header">
+          <p class="eyebrow">示例预览</p>
+          <h2 id="demo-title">这是产品效果图，不进入真实流程</h2>
+          <p>示例只展示报告长什么样。真实评分和建议必须先完成家庭建档。</p>
+        </div>
+        <div class="demo-phone" aria-label="家稳云图示例预览图">
+          <div class="demo-top">
+            <span>家稳云图</span>
+            <strong>示例</strong>
+          </div>
+          <div class="demo-score">
+            <span>家庭财务健康分</span>
+            <strong>76</strong>
+            <em>稳健关注</em>
+          </div>
+          <div class="demo-bars">
+            <i style="width: 78%"></i>
+            <i style="width: 58%"></i>
+            <i style="width: 66%"></i>
+          </div>
+          <div class="demo-row">
+            <span>流动性缓冲层</span>
+            <b>关注</b>
+          </div>
+          <div class="demo-row">
+            <span>债务安全层</span>
+            <b>稳健</b>
+          </div>
+          <div class="demo-row">
+            <span>风险对冲层</span>
+            <b>补齐</b>
+          </div>
+        </div>
+        <div class="welcome-actions">
+          <button class="primary-button" type="button" data-view-target="profile">开始真实建档</button>
+          <button class="quiet-button" type="button" data-view-target="welcome">返回入口</button>
+        </div>
+      </section>
+
+      <section class="view" id="home" aria-labelledby="home-title">
+        <section class="card report-locked" id="home-locked">
+          <div class="lock-mark">!</div>
+          <h3>还没有家庭档案</h3>
+          <p>首页只展示真实建档后的家庭工作台。示例预览不会写入这里。</p>
+          <button class="primary-button" type="button" data-view-target="profile">去完成建档</button>
+        </section>
+
+        <div id="home-content" hidden>
+          <div class="hero-panel">
+            <div>
+              <p class="eyebrow">家庭财务健康分</p>
+              <h2 id="home-title"><span id="health-score">76</span><small> / 100</small></h2>
+              <p id="risk-label" class="risk-label good">稳健关注</p>
+            </div>
+            <div class="score-ring" aria-hidden="true">
+              <span id="score-ring-value">76</span>
+            </div>
+          </div>
+
+          <section class="card">
+            <div class="section-heading">
+              <h3>关键指标</h3>
+              <button class="text-button" type="button" data-view-target="profile">更新建档</button>
+            </div>
+            <div class="metric-grid">
+              <div>
+                <span>月结余率</span>
+                <strong id="saving-rate">32%</strong>
+              </div>
+              <div>
+                <span>债务收入比</span>
+                <strong id="debt-rate">24%</strong>
+              </div>
+              <div>
+                <span>应急金覆盖</span>
+                <strong id="emergency-cover">4.0月</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="section-heading">
+              <h3>四层风险缓冲</h3>
+              <button class="text-button" id="report-cta" type="button" data-view-target="report">看报告</button>
+            </div>
+            <div class="buffer-list" id="home-buffer-list"></div>
+          </section>
+
+          <button class="wide-soft-button" type="button" data-view-target="report">查看行动清单</button>
+        </div>
+      </section>
+
+      <section class="view" id="profile" aria-labelledby="profile-title">
+        <div class="page-title">
+          <p class="eyebrow">建档 - 诊断 - 规划</p>
+          <h2 id="profile-title">家庭问卷建档</h2>
+          <p>信息仅用于本地演示测算，不会上传或保存到服务器。</p>
+        </div>
+
+        <form class="card form-card" id="profile-form">
+          <fieldset class="form-group">
+            <legend>第 1 步 · 收入与支出</legend>
+            <label>
+              家庭月收入（税后到手）
+              <input type="number" id="income" min="0" step="500" placeholder="例如：28000" required />
+              <small>夫妻双方合计，税后、扣五险一金后的实际到手收入。</small>
+            </label>
+            <label>
+              月刚性支出
+              <input type="number" id="expenses" min="0" step="500" placeholder="例如：12500" required />
+              <small>房租/房贷、伙食、交通、水电、子女教育等每月固定支出。</small>
+            </label>
+            <label>
+              月供/债务还款
+              <input type="number" id="debt" min="0" step="500" placeholder="例如：6500" required />
+              <small>房贷、车贷、消费贷、信用卡分期等合计月还款额。</small>
+            </label>
+            <label>
+              主要收入来源
+              <select id="income-source" required>
+                <option value="" selected disabled>请选择收入来源</option>
+                <option value="salary">稳定工薪收入</option>
+                <option value="business">个体经营/创业</option>
+                <option value="freelance">自由职业/兼职</option>
+                <option value="investment">投资性收入为主</option>
+                <option value="mixed">多源收入组合</option>
+              </select>
+            </label>
+          </fieldset>
+
+          <fieldset class="form-group">
+            <legend>第 2 步 · 家庭与保障</legend>
+            <label>
+              家庭常住人口
+              <select id="family-size" required>
+                <option value="" selected disabled>请选择家庭人口</option>
+                <option value="solo">1 人</option>
+                <option value="couple">2 人</option>
+                <option value="three">3 人</option>
+                <option value="four">4 人</option>
+                <option value="five-plus">5 人及以上</option>
+              </select>
+            </label>
+            <label>
+              子女教育阶段
+              <select id="children-stage" required>
+                <option value="" selected disabled>请选择子女情况</option>
+                <option value="none">暂无子女</option>
+                <option value="preschool">有学龄前子女</option>
+                <option value="school">有小学/中学在读子女</option>
+                <option value="college">有大学及以上在读子女</option>
+                <option value="independent">子女已独立</option>
+              </select>
+            </label>
+            <label>
+              赡养老人负担
+              <select id="elderly-care" required>
+                <option value="" selected disabled>请选择赡养情况</option>
+                <option value="none">无赡养负担</option>
+                <option value="light">赡养 1-2 位老人</option>
+                <option value="heavy">赡养 3 位及以上老人</option>
+                <option value="longterm">需长期医疗照护</option>
+              </select>
+            </label>
+            <label>
+              收入稳定性
+              <select id="income-stability" required>
+                <option value="" selected disabled>请选择收入稳定性</option>
+                <option value="stable">稳定工资/经营收入</option>
+                <option value="normal">基本稳定但有波动</option>
+                <option value="unstable">收入波动明显</option>
+                <option value="fragile">短期不确定或单一来源</option>
+              </select>
+            </label>
+            <label>
+              应急金可覆盖月数
+              <input type="number" id="emergency" min="0" max="36" step="0.5" placeholder="例如：4" required />
+              <small>家庭可随时动用的存款，能覆盖几个月刚性支出。</small>
+            </label>
+            <label>
+              基础保障完整度
+              <select id="protection" required>
+                <option value="" selected disabled>请选择保障情况</option>
+                <option value="basic">基础社保+部分商业保障</option>
+                <option value="full">社保与家庭主要成员保障较完整</option>
+                <option value="weak">仅有社保或保障不足</option>
+                <option value="none">保障缺口明显</option>
+              </select>
+            </label>
+            <label>
+              家庭责任结构
+              <select id="responsibility" required>
+                <option value="" selected disabled>请选择家庭责任</option>
+                <option value="moderate">育儿/赡养责任适中</option>
+                <option value="light">责任较轻</option>
+                <option value="heavy">育儿、房贷、赡养责任较重</option>
+                <option value="critical">多项责任叠加且收入单一</option>
+              </select>
+            </label>
+          </fieldset>
+
+          <fieldset class="form-group">
+            <legend>第 3 步 · 目标与资产</legend>
+            <label>
+              当前优先目标
+              <select id="goal" required>
+                <option value="" selected disabled>请选择优先目标</option>
+                <option value="buffer">建立风险缓冲</option>
+                <option value="debt">优化债务压力</option>
+                <option value="education">教育金储备</option>
+                <option value="pension">养老金规划</option>
+                <option value="wealth">稳健财富积累</option>
+              </select>
+            </label>
+            <label>
+              可投资资产规模
+              <select id="investable-assets" required>
+                <option value="" selected disabled>请选择资产规模</option>
+                <option value="under10">10 万以下</option>
+                <option value="mid10">10-50 万</option>
+                <option value="mid50">50-100 万</option>
+                <option value="over100">100 万以上</option>
+              </select>
+              <small>扣除自住房后的存款、理财、基金、股票等可动用资产。</small>
+            </label>
+            <label>
+              理财经验
+              <select id="financial-literacy" required>
+                <option value="" selected disabled>请选择理财经验</option>
+                <option value="none">暂无理财经验</option>
+                <option value="basic">初步了解存款理财</option>
+                <option value="intermediate">有一定基金/股票经验</option>
+                <option value="advanced">经验较丰富</option>
+              </select>
+            </label>
+          </fieldset>
+
+          <button class="primary-button" type="submit">生成家庭画像与建议</button>
+          <p class="form-privacy-note">信息仅用于本地演示测算，不会上传或保存到服务器。</p>
+        </form>
+      </section>
+
+      <section class="view" id="agent" aria-labelledby="agent-title">
+        <div class="page-title compact">
+          <p class="eyebrow">7x24 AI 家庭理财顾问</p>
+          <h2 id="agent-title">AI顾问</h2>
+        </div>
+
+        <div class="card compliance-card">
+          <strong>服务边界</strong>
+          <p>提供财务健康评估、风险提示和规划模拟；不承诺收益、不代客理财、不直接推荐具体证券产品。</p>
+        </div>
+
+        <div class="card ai-status">
+          <div>
+            <strong>AI 家庭财务顾问</strong>
+            <p>由 DeepSeek 大模型驱动，7×24 小时回答家庭财务问题。</p>
+          </div>
+          <span id="ai-status-indicator" class="pending">待检测</span>
+        </div>
+
+        <details class="card ai-settings" id="ai-settings">
+          <summary>AI 服务详情（高级）</summary>
+          <p class="settings-tip">AI 顾问由 DeepSeek-V3.2 大模型驱动，问答服务由平台提供，你可以放心使用。以下为高级设置，一般用户无需修改；也可以接入你自己的模型服务。</p>
+          <form class="ai-config-form" id="ai-config-form">
+            <label class="radio-line">
+              <input type="radio" name="ai-mode" value="default" checked />
+              使用平台 AI 服务（默认，推荐）
+            </label>
+            <label class="radio-line">
+              <input type="radio" name="ai-mode" value="custom" />
+              使用我自己的模型服务（高级）
+            </label>
+            <label>
+              服务地址（高级）
+              <input type="url" id="ai-endpoint" spellcheck="false" placeholder="https://xxx.workers.dev 或 http://localhost:11434/api/chat" />
+            </label>
+            <label>
+              模型名称（高级）
+              <input type="text" id="ai-model" spellcheck="false" placeholder="deepseek-ai/DeepSeek-V3.2" />
+            </label>
+            <label>
+              密钥（可选）
+              <input type="password" id="ai-key" autocomplete="off" placeholder="接入自己的服务时才需要填写" />
+              <small>用于访问你自己的模型服务，请妥善保管。</small>
+            </label>
+            <div class="ai-config-actions">
+              <button class="primary-button" type="submit">保存并启用</button>
+              <div class="ai-config-row">
+                <button class="quiet-button" type="button" id="ai-test">测试连接</button>
+                <button class="quiet-button" type="button" id="ai-reset">恢复默认</button>
+              </div>
+            </div>
+            <p class="settings-status" id="ai-config-status" role="status"></p>
+          </form>
+        </details>
+
+        <div class="quick-prompts">
+          <button type="button" data-prompt="我家的应急金应该准备多少？">应急金</button>
+          <button type="button" data-prompt="房贷月供压力偏高怎么办？">房贷压力</button>
+          <button type="button" data-prompt="怎么规划孩子教育金？">教育金</button>
+          <button type="button" data-prompt="保障缺口应该怎么补？">保障缺口</button>
+        </div>
+
+        <p class="model-badge" id="model-badge"></p>
+        <div class="chat-card" id="chat-log" aria-live="polite"></div>
+
+        <form class="chat-input" id="chat-form">
+          <input id="chat-message" type="text" placeholder="问问家庭现金流、负债、养老或保险..." autocomplete="off" />
+          <button class="primary-button" type="submit">发送</button>
+        </form>
+      </section>
+
+      <section class="view" id="report" aria-labelledby="report-title">
+        <div class="page-title compact">
+          <p class="eyebrow">风险诊断报告</p>
+          <h2 id="report-title">家庭财务画像</h2>
+        </div>
+
+        <section class="card report-locked" id="report-locked">
+          <div class="lock-mark">!</div>
+          <h3>请先完成家庭问卷建档</h3>
+          <p>报告会基于最新一次建档数据生成。未建档前不展示评分、短板和行动清单，避免把示例数据误认为真实诊断。</p>
+          <button class="primary-button" type="button" data-view-target="profile">去完成建档</button>
+        </section>
+
+        <div id="report-content" hidden>
+          <section class="card report-score">
+            <div>
+              <span>综合评分</span>
+              <strong id="report-score">76</strong>
+            </div>
+            <p id="report-summary"></p>
+          </section>
+
+          <section class="card">
+            <h3>核心短板</h3>
+            <ul class="plain-list" id="weakness-list"></ul>
+          </section>
+
+          <section class="card">
+            <h3>四层缓冲配置建议</h3>
+            <div class="buffer-list" id="report-buffer-list"></div>
+          </section>
+
+          <section class="card">
+            <h3>三个月行动清单</h3>
+            <ul class="plain-list" id="report-actions"></ul>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="subscription" aria-labelledby="subscription-title">
+        <div class="page-title compact">
+          <p class="eyebrow">分层订阅体系</p>
+          <h2 id="subscription-title">选择你的服务方案</h2>
+        </div>
+
+        <div class="free-tier">
+          <div>
+            <strong>免费体验版</strong>
+            <p>基础问卷、财务健康评分、基础问答，注册即可体验。</p>
+          </div>
+          <span>¥0</span>
+        </div>
+
+        <div class="plans">
+          <article class="plan-card">
+            <span>Go</span>
+            <h3>基础普惠层</h3>
+            <div class="plan-price"><strong>¥19.9</strong><em>/月</em><span class="plan-year">年付 ¥238.8</span></div>
+            <p>问卷建档、基础风险报告、四层缓冲方案、月度健康提醒。</p>
+            <small>适合首次建立家庭财务安全底线</small>
+          </article>
+          <article class="plan-card featured">
+            <span>Plus</span>
+            <em class="plan-badge">最受欢迎</em>
+            <h3>进阶增强层</h3>
+            <div class="plan-price"><strong>¥39.9</strong><em>/月</em><span class="plan-year">年付 ¥478.8</span></div>
+            <p>深度财务分析、教育金与养老金目标测算、现金流日历。</p>
+            <small>适合有稳定收入和明确规划目标的家庭</small>
+          </article>
+          <article class="plan-card">
+            <span>Pro</span>
+            <em class="plan-badge plan-badge-pro">专业版</em>
+            <h3>专业生态层</h3>
+            <div class="plan-price"><strong>¥99</strong><em>/月</em><span class="plan-year">年付 ¥1188</span></div>
+            <p>持牌机构信息连接、专业数据服务、专项报告与优先答疑。</p>
+            <small>适合需要深度方案和合规信息连接的用户</small>
+          </article>
+        </div>
+        <p class="plans-note">当前为产品演示版本，订阅支付功能尚未开放，价格仅作方案示意。</p>
+      </section>
+
+      <nav class="bottom-nav" aria-label="主导航">
+        <button class="active" type="button" data-view-target="home">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.8 12 3l9 7.8"/><path d="M5.5 9.6V21h13V9.6"/><path d="M10 21v-6h4v6"/></svg>
+          <span>首页</span>
+        </button>
+        <button type="button" data-view-target="profile">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="2.5"/><path d="M9 3.5V2h6v1.5"/><path d="M9 10h6M9 14h6"/></svg>
+          <span>建档</span>
+        </button>
+        <button type="button" data-view-target="agent">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8.5 8.5 0 0 1-8.5 8.5H4.2l1.8-2.3A8.5 8.5 0 1 1 21 12z"/><path d="M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01"/></svg>
+          <span>AI顾问</span>
+        </button>
+        <button type="button" data-view-target="report">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M10 12h6M10 16h6"/></svg>
+          <span>报告</span>
+        </button>
+        <button type="button" data-view-target="subscription">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.5l-5.2 2.6 1-5.8-4.3-4.1 5.9-.9z"/></svg>
+          <span>订阅</span>
+        </button>
+      </nav>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
