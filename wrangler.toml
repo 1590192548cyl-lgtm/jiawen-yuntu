@@ -1,0 +1,8 @@
+name = "jiawen-ai"
+main = "worker.js"
+compatibility_date = "2026-08-14"
+
+# 说明：
+# - MODEL_API_KEY / TAVILY_API_KEY 属于机密，请通过 Cloudflare 控制台
+#   （Settings -> Variables and Secrets）或 `wrangler secret put` 配置，
+#   不要写入本文件，也不要提交到 GitHub。
