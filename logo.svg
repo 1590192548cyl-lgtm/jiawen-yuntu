@@ -1,0 +1,31 @@
+<svg width="620" height="190" viewBox="0 0 620 190" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="家稳云图 中国家庭风险缓冲与AI理财服务平台">
+  <rect width="620" height="190" fill="#FFFFFF"/>
+  <g transform="translate(64 27)">
+    <path d="M115 13C80 2 39 14 18 47C-4 82 4 124 35 149" stroke="#07336F" stroke-width="10" stroke-linecap="round"/>
+    <path d="M13 121C42 147 89 153 123 128C141 115 153 98 158 78" stroke="#079995" stroke-width="10" stroke-linecap="round"/>
+    <path d="M40 88L78 58L119 88" stroke="#07336F" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M50 89V121H111V89" stroke="#07336F" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="73" y="81" width="7" height="7" fill="#07336F"/>
+    <rect x="84" y="81" width="7" height="7" fill="#07336F"/>
+    <rect x="73" y="92" width="7" height="7" fill="#07336F"/>
+    <rect x="84" y="92" width="7" height="7" fill="#07336F"/>
+    <circle cx="55" cy="108" r="9" fill="#07336F"/>
+    <path d="M34 132C37 121 45 114 55 114C66 114 74 121 77 132H34Z" fill="#07336F"/>
+    <circle cx="80" cy="113" r="8" fill="#079995"/>
+    <path d="M63 137C66 126 72 119 80 119C89 119 96 126 98 137H63Z" fill="#079995"/>
+    <circle cx="106" cy="108" r="10" fill="#07336F"/>
+    <path d="M84 134C87 121 96 114 106 114C118 114 127 122 130 134H84Z" fill="#07336F"/>
+    <path d="M48 43L64 26L88 39L112 32L135 53" stroke="#079995" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="64" cy="26" r="4.5" fill="#079995"/>
+    <circle cx="88" cy="39" r="4.5" fill="#079995"/>
+    <circle cx="112" cy="32" r="4.5" fill="#079995"/>
+    <circle cx="135" cy="53" r="4.5" fill="#079995"/>
+    <rect x="129" y="112" width="8" height="20" rx="1" fill="#079995"/>
+    <rect x="142" y="96" width="8" height="36" rx="1" fill="#0A4F8F"/>
+    <path d="M151 98L166 69L174 100L164 94L151 119" fill="#D7A12A"/>
+  </g>
+  <g transform="translate(218 58)">
+    <text x="0" y="46" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="60" font-weight="900" fill="#07336F">家稳云图</text>
+    <text x="4" y="82" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" font-weight="600" letter-spacing="4" fill="#1F3852">中国家庭风险缓冲与AI理财服务平台</text>
+  </g>
+</svg>
