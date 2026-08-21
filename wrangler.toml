@@ -6,6 +6,7 @@ compatibility_date = "2026-08-14"
 MODEL_API_BASE = "https://api.deepseek.com/chat/completions"
 MODEL_NAME = "deepseek-v4-flash"
 MODEL_MAX_TOKENS = "500"
+ALLOWED_ORIGINS = "https://jiawen-yuntu-preview.pages.dev,https://codex-approved-a-landing-qjr6.jiawen-yuntu-preview.pages.dev,http://localhost:8788,http://127.0.0.1:8788"
 
 [[ratelimits]]
 name = "AI_RATE_LIMITER"
