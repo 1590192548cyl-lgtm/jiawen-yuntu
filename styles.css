@@ -1,7 +1,7 @@
 /* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V5
  * genre: playful · macrostructure: Workbench · design-system: design.md · designed-as-app
  * theme: custom brand blue + teal on warm ivory · display: high-contrast serif · body: IBM Plex Sans
- * nav: N1b adapted brand lockup · footer: deferred · context: user-approved visual direction
+ * nav: N1b adapted brand lockup · footer: Ft2 inline legal colophon · context: user-approved visual direction
  * contrast: pass (40–41) · slop: pass (42–45) · honest: pass (46) · chrome: pass (47)
  * tokens: pass (48) · responsive/mobile: pass (34, 49, 50–57) · icons: pass (30)
  */
@@ -1997,7 +1997,7 @@ body {
 
   #agent .chat-card {
     grid-area: chat;
-    min-height: 36rem;
+    min-height: clamp(24rem, 52vh, 36rem);
     max-height: 64vh;
   }
 
@@ -2066,4 +2066,207 @@ body {
 /* Hallmark · chat-message readability · preserve intentional response rhythm */
 .message.agent {
   white-space: pre-line;
+}
+
+/* Hallmark · approved disclosure layer · restrained, token-bound, responsive */
+.ai-generated-note {
+  margin: calc(var(--space-xs) * -1) 0 var(--space-sm);
+  color: var(--color-ink-2);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.chat-input {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-sm);
+  bottom: calc(90px + var(--space-sm));
+}
+
+.chat-compose {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-xs);
+}
+
+.chat-compose .primary-button {
+  min-width: 4.875rem;
+  white-space: nowrap;
+}
+
+.chat-consent {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-xs);
+  align-items: start;
+  color: var(--color-ink-2);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.chat-consent input {
+  width: 1.125rem;
+  height: 1.125rem;
+  min-height: 0;
+  margin: var(--space-3xs) 0 0;
+  accent-color: var(--color-accent);
+}
+
+.chat-consent input:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+.legal-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs) var(--space-md);
+  width: min(100%, var(--page-max));
+  margin: var(--space-2xl) auto 0;
+  padding: var(--space-lg) var(--page-gutter) calc(var(--space-3xl) + var(--space-lg));
+  border-top: var(--rule-hair) solid var(--color-rule);
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+}
+
+.legal-footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-xs) var(--space-md);
+}
+
+.legal-footer a,
+.legal-back,
+.legal-contact {
+  color: var(--color-ink-2);
+  text-decoration-color: var(--color-rule);
+  text-underline-offset: var(--space-2xs);
+  white-space: nowrap;
+}
+
+.legal-footer a:focus-visible,
+.legal-back:focus-visible,
+.legal-contact:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .legal-footer a:hover,
+  .legal-back:hover,
+  .legal-contact:hover {
+    color: var(--color-accent-deep);
+  }
+}
+
+.legal-page {
+  min-height: 100dvh;
+  overflow-x: clip;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
+.legal-page main {
+  width: min(100%, 52rem);
+  margin-inline: auto;
+  padding: var(--space-xl) var(--page-gutter) var(--space-3xl);
+}
+
+.legal-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding-bottom: var(--space-lg);
+  border-bottom: var(--rule-hair) solid var(--color-rule);
+}
+
+.legal-brand {
+  display: block;
+  width: min(15rem, 72vw);
+}
+
+.legal-brand img {
+  display: block;
+  width: 100%;
+  height: auto;
+  mix-blend-mode: multiply;
+}
+
+.legal-document {
+  padding-top: var(--space-2xl);
+}
+
+.legal-document h1,
+.legal-document h2 {
+  overflow-wrap: anywhere;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.legal-document h1 {
+  margin: 0;
+  font-size: clamp(2.35rem, 8vw, 4.5rem);
+  line-height: 1.06;
+}
+
+.legal-document h2 {
+  margin: var(--space-xl) 0 var(--space-sm);
+  font-size: var(--text-xl);
+}
+
+.legal-meta,
+.legal-document p,
+.legal-document li {
+  max-width: 68ch;
+  color: var(--color-ink-2);
+  font-size: var(--text-base);
+  line-height: 1.7;
+}
+
+.legal-meta {
+  margin: var(--space-md) 0 0;
+  color: var(--color-muted);
+}
+
+.legal-document ul {
+  display: grid;
+  gap: var(--space-xs);
+  padding-inline-start: var(--space-lg);
+}
+
+.legal-callout {
+  margin-top: var(--space-xl);
+  padding: var(--space-lg);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-card);
+  background: var(--color-paper-2);
+  color: var(--color-ink-2);
+}
+
+.legal-end {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin-top: var(--space-2xl);
+  padding-top: var(--space-lg);
+  border-top: var(--rule-hair) solid var(--color-rule);
+}
+
+@media (min-width: 40rem) {
+  .legal-footer {
+    justify-content: space-between;
+  }
 }
