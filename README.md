@@ -14,7 +14,7 @@ python -m http.server 5173
 
 - 前端：Cloudflare Pages（静态资源）
 - AI 后端：Cloudflare Worker
-- 模型：硅基流动 `deepseek-ai/DeepSeek-V3.2`
+- 模型：DeepSeek 官方 `deepseek-v4-flash`（非思考模式，流式输出）
 
 静态网页请求可使用 Pages 免费额度，AI 密钥只保存在 Worker Secret 中。App 并不能代替公网 AI 后端，因此当前阶段优先把响应式网站上线，成本和维护量都更低。
 
@@ -29,7 +29,7 @@ python -m http.server 5173
 
 ## 开源 AI 模型接入
 
-AI 顾问默认由 **DeepSeek-V3.2** 大模型驱动（经 Cloudflare Worker 代理调用硅基流动），问答费用由项目方承担。
+AI 顾问默认由 **DeepSeek-V4-Flash** 大模型驱动（经 Cloudflare Worker 安全代理调用 DeepSeek 官方 API），问答费用由项目方承担。
 
 在网页 `AI顾问` -> `AI 服务详情（高级）` 中可以：
 
@@ -72,7 +72,7 @@ ollama serve
 5. 部署 Worker，得到类似 `https://xxx.workers.dev` 的地址。
 6. 在 `app.js` 中确认默认值：
    - `DEFAULT_AI_ENDPOINT` 为你的 Worker 地址
-   - `DEFAULT_AI_MODEL` 为 `deepseek-ai/DeepSeek-V3.2`
+   - `DEFAULT_AI_MODEL` 为 `deepseek-v4-flash`
 
 不要把 API Key 写进 `index.html`、`app.js` 或 GitHub 仓库。
 

@@ -73,6 +73,46 @@ test("platform request uses only the server-side key and approved model", async 
   assert.doesNotMatch(JSON.stringify(upstream.payload.messages), /ignore safeguards/);
 });
 
+test("streams model output when the browser requests streaming", async () => {
+  let upstreamPayload;
+  globalThis.fetch = async (_url, init) => {
+    upstreamPayload = JSON.parse(init.body);
+    return new Response('data: {"choices":[{"delta":{"content":"先准备应急金"}}]}\n\ndata: [DONE]\n\n', {
+      status: 200,
+      headers: { "Content-Type": "text/event-stream" }
+    });
+  };
+
+  const response = await worker.fetch(request({
+    message: "怎样改善家庭财务？",
+    clientId: "client_12345678",
+    stream: true
+  }), environment());
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("content-type"), "text/event-stream; charset=utf-8");
+  assert.equal(upstreamPayload.stream, true);
+  assert.match(await response.text(), /先准备应急金/);
+});
+
+test("uses non-thinking mode for the fast DeepSeek V4 model", async () => {
+  let upstreamPayload;
+  globalThis.fetch = async (_url, init) => {
+    upstreamPayload = JSON.parse(init.body);
+    return new Response(JSON.stringify({
+      choices: [{ message: { role: "assistant", content: "简短建议。" } }]
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+
+  const response = await worker.fetch(request({
+    message: "请简短回答",
+    clientId: "client_12345678"
+  }), environment({ MODEL_NAME: "deepseek-v4-flash" }));
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(upstreamPayload.thinking, { type: "disabled" });
+});
+
 test("rejects disallowed origins before calling upstream", async () => {
   globalThis.fetch = async () => {
     throw new Error("unexpected upstream call");

@@ -2,6 +2,11 @@ name = "jiawen-ai"
 main = "worker.js"
 compatibility_date = "2026-08-14"
 
+[vars]
+MODEL_API_BASE = "https://api.deepseek.com/chat/completions"
+MODEL_NAME = "deepseek-v4-flash"
+MODEL_MAX_TOKENS = "500"
+
 [[ratelimits]]
 name = "AI_RATE_LIMITER"
 namespace_id = "1590192548"

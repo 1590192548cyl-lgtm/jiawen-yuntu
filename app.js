@@ -1,9 +1,10 @@
-const DEFAULT_AI_ENDPOINT = "https://jiawen-ai.jiangying10111222.workers.dev";
-const DEFAULT_AI_MODEL = "deepseek-ai/DeepSeek-V3.2";
+const DEFAULT_AI_ENDPOINT = "https://jiawen-ai.1590192548cyl.workers.dev";
+const DEFAULT_AI_MODEL = "deepseek-v4-flash";
 const AI_CONFIG_KEY = "jiawen-ai-config-v2";
 const AI_CLIENT_ID_KEY = "jiawen-ai-client-id-v1";
 const OLD_DEFAULT_ENDPOINT = "https://holy-heart-40d2.1590192548cyl.workers.dev";
 const OLD_DEFAULT_MODEL = "Qwen/Qwen2.5-7B-Instruct";
+const PREVIOUS_PLATFORM_ENDPOINT = "https://jiawen-ai.jiangying10111222.workers.dev";
 
 const state = {
   hasProfile: false,
@@ -79,7 +80,11 @@ function loadAIConfig() {
   try {
     const saved = JSON.parse(localStorage.getItem(AI_CONFIG_KEY) || "null");
     if (saved && typeof saved === "object") {
-      const isStaleDefault = saved.endpoint === OLD_DEFAULT_ENDPOINT && saved.model === OLD_DEFAULT_MODEL;
+      const isStaleDefault = (
+        saved.endpoint === OLD_DEFAULT_ENDPOINT && saved.model === OLD_DEFAULT_MODEL
+      ) || (
+        saved.mode === "default" && saved.endpoint === PREVIOUS_PLATFORM_ENDPOINT
+      );
       if (!isStaleDefault) {
         state.aiConfig = {
           endpoint: DEFAULT_AI_ENDPOINT,
@@ -302,7 +307,45 @@ function profileBrief(profile) {
   ].join("；");
 }
 
-async function callOpenSourceAgent(message, profile) {
+async function readStreamingReply(response, onChunk) {
+  const reader = response.body?.getReader();
+  if (!reader) return "";
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let reply = "";
+
+  const consumeEvent = (eventText) => {
+    for (const line of eventText.split("\n")) {
+      if (!line.startsWith("data:")) continue;
+      const payload = line.slice(5).trim();
+      if (!payload || payload === "[DONE]") continue;
+      try {
+        const data = JSON.parse(payload);
+        const chunk = data.choices?.[0]?.delta?.content || data.response || "";
+        if (chunk) {
+          reply += chunk;
+          onChunk?.(reply);
+        }
+      } catch (_) {
+        // Ignore provider keep-alive events and continue reading the stream.
+      }
+    }
+  };
+
+  while (true) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value || new Uint8Array(), { stream: !done }).replace(/\r\n/g, "\n");
+    const events = buffer.split("\n\n");
+    buffer = events.pop() || "";
+    events.forEach(consumeEvent);
+    if (done) break;
+  }
+  if (buffer.trim()) consumeEvent(buffer);
+  return reply;
+}
+
+async function callOpenSourceAgent(message, profile, onChunk) {
   const endpoint = state.aiConfig.endpoint.trim();
   const model = state.aiConfig.model.trim();
   const apiKey = (state.aiConfig.apiKey || "").trim();
@@ -310,14 +353,16 @@ async function callOpenSourceAgent(message, profile) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-  const systemPrompt = "你是家稳云图的家庭财务AI顾问。请用中文回答。你的服务范围包括：家庭财务健康评估、现金流管理、风险缓冲、教育金、养老金、保障缺口分析，以及金融常识、市场动态、指数与宏观政策解读、产品规则解释。回答要简洁、可执行。只输出易读纯文本，不使用Markdown符号，包括星号、井号、代码围栏和列表横线；需要分点时使用“1、”“2、”。合规要求：不承诺收益、不代客理财、不预测短期走势、不推荐具体证券产品；解释市场动态时注明“仅供参考，市场有风险”。如果用户询问你的模型，可以说明你由家稳云图基于 DeepSeek-V3.2 提供支持。";
+  const systemPrompt = "你是家稳云图的家庭财务AI顾问。请用中文回答。你的服务范围包括：家庭财务健康评估、现金流管理、风险缓冲、教育金、养老金、保障缺口分析，以及金融常识、市场动态、指数与宏观政策解读、产品规则解释。回答要简洁、可执行。只输出易读纯文本，不使用Markdown符号，包括星号、井号、代码围栏和列表横线；需要分点时使用“1、”“2、”。合规要求：不承诺收益、不代客理财、不预测短期走势、不推荐具体证券产品；解释市场动态时注明“仅供参考，市场有风险”。如果用户询问你的模型，可以说明你由家稳云图基于 DeepSeek-V4-Flash 提供支持。";
   const userPrompt = `家庭画像：${profileBrief(profile)}\n用户问题：${message}`;
+  const conciseMessage = `${message}\n\n回答要求：除非我明确要求详细分析，否则请控制在220字以内，先给结论，最多列4点，不要重复介绍服务范围。`;
   const isOllama = endpoint.includes("/api/chat");
   const payload = state.aiConfig.mode === "default"
     ? {
-        message,
+        message: conciseMessage,
         profile: profileBrief(profile),
-        clientId: getAIClientId()
+        clientId: getAIClientId(),
+        stream: true
       }
     : isOllama
       ? {
@@ -358,6 +403,9 @@ async function callOpenSourceAgent(message, profile) {
       }
       throw new Error(`AI接口返回 ${response.status}${detail}`);
     }
+    if (response.headers.get("content-type")?.includes("text/event-stream")) {
+      return await readStreamingReply(response, onChunk);
+    }
     const data = await response.json();
     return data.message?.content || data.choices?.[0]?.message?.content || data.response || null;
   } catch (error) {
@@ -370,9 +418,9 @@ async function callOpenSourceAgent(message, profile) {
   }
 }
 
-async function askAgent(message, profile) {
+async function askAgent(message, profile, onChunk) {
   try {
-    const agentReply = await callOpenSourceAgent(message, profile);
+    const agentReply = await callOpenSourceAgent(message, profile, onChunk);
     if (agentReply) return agentReply;
   } catch (error) {
     return `联网 AI 暂时没有返回（${error.message}）。你可以稍后再试，或到“AI 服务详情”中检查设置。下面先用本地规则给你一个兜底建议：${localRuleAgent(message, profile)}`;
@@ -567,6 +615,7 @@ function updateModelBadge() {
   if (!badge) return;
   const config = state.aiConfig;
   const friendlyNames = {
+    "deepseek-v4-flash": "DeepSeek-V4-Flash",
     "deepseek-ai/DeepSeek-V3.2": "DeepSeek-V3.2",
     "deepseek-chat": "DeepSeek",
     "Qwen/Qwen2.5-7B-Instruct": "Qwen 2.5",
@@ -622,7 +671,10 @@ function bindEvents() {
     const pending = addMessage("agent", "正在连接联网AI并分析，请稍等...");
     pending.classList.add("is-typing");
     try {
-      const answer = await askAgent(message, state.profile);
+      const answer = await askAgent(message, state.profile, (partialReply) => {
+        pending.textContent = cleanAgentReply(partialReply);
+        pending.classList.remove("is-typing");
+      });
       const reply = typeof answer === "string" ? answer : answer.reply || "已收到，我会结合家庭画像生成建议。";
       pending.textContent = cleanAgentReply(reply);
     } finally {
@@ -681,7 +733,7 @@ function bindEvents() {
     populateAIConfigForm();
     updateModelBadge();
     const status = document.getElementById("ai-config-status");
-    status.textContent = "已恢复默认：平台 AI 服务（DeepSeek-V3.2）。";
+    status.textContent = "已恢复默认：平台 AI 服务（DeepSeek-V4-Flash）。";
     status.className = "settings-status ok";
     setAIStatus("待检测", "");
   });

@@ -1,7 +1,7 @@
 const SILICONFLOW_URL = "https://api.siliconflow.cn/v1/chat/completions";
 const TAVILY_URL = "https://api.tavily.com/search";
 const TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
-const DEFAULT_MODEL = "deepseek-ai/DeepSeek-V3.2";
+const DEFAULT_MODEL = "deepseek-v4-flash";
 const MAX_REQUEST_BYTES = 24_000;
 const MAX_QUESTION_CHARS = 1_200;
 const MAX_PROFILE_CHARS = 4_000;
@@ -47,6 +47,7 @@ export default {
 
     try {
       const body = await readJsonBody(request);
+      const stream = body.stream === true;
       const question = extractUserQuestion(body).trim();
       const profile = normalizeProfile(body.profile);
       if (!question) {
@@ -81,6 +82,16 @@ export default {
       const messages = normalizeMessages(question, profile, searchResults);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
+      const modelPayload = {
+        model,
+        messages,
+        temperature: 0.4,
+        max_tokens: Number(env.MODEL_MAX_TOKENS || 700),
+        stream
+      };
+      if (model.startsWith("deepseek-v4")) {
+        modelPayload.thinking = { type: "disabled" };
+      }
 
       let upstream;
       try {
@@ -90,13 +101,7 @@ export default {
             "Content-Type": "application/json",
             Authorization: `Bearer ${apiKey}`
           },
-          body: JSON.stringify({
-            model,
-            messages,
-            temperature: 0.4,
-            max_tokens: Number(env.MODEL_MAX_TOKENS || 700),
-            stream: false
-          }),
+          body: JSON.stringify(modelPayload),
           signal: controller.signal
         });
       } finally {
@@ -106,6 +111,17 @@ export default {
       if (!upstream.ok) {
         console.error("AI upstream error", upstream.status);
         return json({ error: "AI 服务暂时不可用，请稍后再试。" }, 502, request, env);
+      }
+
+      if (stream && upstream.body) {
+        return new Response(upstream.body, {
+          status: 200,
+          headers: {
+            "Content-Type": "text/event-stream; charset=utf-8",
+            "Cache-Control": "no-cache, no-transform",
+            ...corsHeaders(request, env)
+          }
+        });
       }
 
       const data = await upstream.json();
