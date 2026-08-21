@@ -1,0 +1,9 @@
+{
+  "date": "2026-08-21",
+  "framework": "vanilla-html",
+  "font_stack": "existing system serif + system sans",
+  "palette": "legacy cream/terracotta tokens",
+  "motion": "css-only",
+  "spacing": "legacy mixed pixel scale",
+  "preserve": ["view routing", "risk calculation", "AI worker integration", "logo asset"]
+}

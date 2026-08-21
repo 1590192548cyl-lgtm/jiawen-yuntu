@@ -11,6 +11,11 @@ Thumbs.db
 backups/
 
 # Cloudflare Wrangler 本地缓存与登录凭据（勿提交）
-.wrangler/
 node_modules/
+.wrangler/
 .dev.vars
+.dev.vars.*
+
+# Local Hallmark previews; keep only reusable design metadata in Git.
+.hallmark/*.png
+.hallmark/*.jpg

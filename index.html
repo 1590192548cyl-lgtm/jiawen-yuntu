@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="家稳云图：中国家庭风险缓冲与 AI 理财服务平台。轻量建档，生成家庭风险评分、缓冲方案与行动清单。" />
     <title>家稳云图 | AI家庭财务风险缓冲平台</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=20260821-7" />
   </head>
   <body>
     <main class="app-shell is-welcome">
@@ -19,35 +19,59 @@
       </header>
 
       <section class="view welcome-view active" id="welcome" aria-labelledby="welcome-title">
-        <div class="welcome-card">
-          <div class="brand-lockup">
-            <img class="brand-logo" src="logo.png?v=1" alt="家稳云图 中国家庭风险缓冲与AI理财服务平台" />
+        <nav class="landing-nav" aria-label="首页导航">
+          <button class="landing-brand" type="button" data-view-target="welcome" aria-label="家稳云图首页">
+            <img src="logo.png?v=2" alt="家稳云图 中国家庭风险缓冲与AI理财服务平台" width="896" height="300" fetchpriority="high" />
+          </button>
+          <div class="landing-nav-links">
+            <button type="button" data-view-target="home">家庭概览</button>
+            <button type="button" data-view-target="report">风险缓冲</button>
+            <button type="button" data-view-target="agent">AI 顾问</button>
           </div>
-          <div class="welcome-copy">
-            <p class="eyebrow">AI家庭财务管家</p>
-            <h2 id="welcome-title">看清家庭财务风险，得到可执行建议</h2>
-            <p>用一次轻量建档，生成家庭风险评分、缓冲方案和行动清单。</p>
-          </div>
-          <ol class="how-steps" aria-label="使用步骤">
-            <li><span>1</span>填写家庭问卷</li>
-            <li><span>2</span>生成风险诊断</li>
-            <li><span>3</span>领取行动清单</li>
-          </ol>
-          <div class="welcome-stats">
-            <div><strong>6</strong><span>诊断维度</span></div>
-            <div><strong>4</strong><span>缓冲层级</span></div>
-            <div><strong>7x24</strong><span>AI 顾问</span></div>
-          </div>
-          <div class="welcome-actions">
-            <button class="primary-button" type="button" data-view-target="profile">开始家庭财务体检</button>
-            <button class="quiet-button" type="button" data-view-target="demo">查看示例预览</button>
-          </div>
-          <ul class="trust-chips" aria-label="产品特点">
-            <li>纯本地测算</li>
-            <li>无需注册</li>
-            <li>AI 顾问 7x24</li>
-          </ul>
+          <button class="landing-demo-link" type="button" data-view-target="demo">查看示例</button>
+        </nav>
+
+        <div class="landing-shell">
+          <section class="landing-hero">
+            <div class="landing-copy">
+              <p class="landing-context">家庭财务风险工作台</p>
+              <h1 id="welcome-title">把家庭风险，整理成今天能做的事。</h1>
+              <p class="landing-lede">一次轻量建档，得到可解释的风险评分、四层缓冲方案和三个月行动清单。</p>
+              <div class="landing-actions">
+                <button class="landing-primary" type="button" data-view-target="profile">开始家庭体检</button>
+                <span>无需注册 · 本地测算</span>
+              </div>
+            </div>
+
+            <figure class="landing-dashboard" aria-labelledby="dashboard-title">
+              <div class="landing-dashboard-top">
+                <div>
+                  <p>示例家庭 · 2026 年 8 月</p>
+                  <h2 id="dashboard-title">家庭财务概览</h2>
+                </div>
+                <span class="landing-status">结构可控</span>
+              </div>
+              <div class="landing-score">
+                <div class="landing-score-ring" aria-label="示例家庭财务健康分 76 分"><strong>76</strong></div>
+                <div>
+                  <strong>稳健关注</strong>
+                  <span>流动性缓冲仍有提升空间</span>
+                </div>
+              </div>
+              <div class="landing-metrics" aria-label="示例家庭关键指标">
+                <div><span>月结余率</span><strong>32%</strong></div>
+                <div><span>债务收入比</span><strong>24%</strong></div>
+                <div><span>应急金覆盖</span><strong>4.0 月</strong></div>
+              </div>
+              <figcaption>仅为视觉示例，真实结果需完成家庭建档。</figcaption>
+            </figure>
+          </section>
         </div>
+
+        <aside class="landing-sticky-cta" aria-label="开始家庭财务体检">
+          <span>用自己的家庭数据生成报告</span>
+          <button class="landing-primary" type="button" data-view-target="profile">开始体检</button>
+        </aside>
       </section>
 
       <section class="view demo-view" id="demo" aria-labelledby="demo-title">
@@ -147,7 +171,7 @@
         <div class="page-title">
           <p class="eyebrow">建档 - 诊断 - 规划</p>
           <h2 id="profile-title">家庭问卷建档</h2>
-          <p>信息仅用于本地演示测算，不会上传或保存到服务器。</p>
+          <p>建档与评分在浏览器本地完成；只有主动使用 AI 顾问时，必要的家庭画像摘要才会发送至模型服务。</p>
         </div>
 
         <form class="card form-card" id="profile-form">
@@ -289,7 +313,7 @@
           </fieldset>
 
           <button class="primary-button" type="submit">生成家庭画像与建议</button>
-          <p class="form-privacy-note">信息仅用于本地演示测算，不会上传或保存到服务器。</p>
+          <p class="form-privacy-note">建档数据不会保存到服务器。使用 AI 顾问时，请勿输入身份证号、银行卡号、详细住址等敏感信息。</p>
         </form>
       </section>
 
@@ -302,6 +326,7 @@
         <div class="card compliance-card">
           <strong>服务边界</strong>
           <p>提供财务健康评估、风险提示和规划模拟；不承诺收益、不代客理财、不直接推荐具体证券产品。</p>
+          <p>主动提问时会发送必要的家庭画像摘要用于生成建议，请勿输入身份证号、银行卡号或账户密码。</p>
         </div>
 
         <div class="card ai-status">
@@ -314,7 +339,7 @@
 
         <details class="card ai-settings" id="ai-settings">
           <summary>AI 服务详情（高级）</summary>
-          <p class="settings-tip">AI 顾问由 DeepSeek-V3.2 大模型驱动，问答服务由平台提供，你可以放心使用。以下为高级设置，一般用户无需修改；也可以接入你自己的模型服务。</p>
+          <p class="settings-tip">AI 顾问由 DeepSeek-V4-Flash 大模型驱动，问答服务由平台提供。以下为高级设置，一般用户无需修改；也可以接入你自己的模型服务。</p>
           <form class="ai-config-form" id="ai-config-form">
             <label class="radio-line">
               <input type="radio" name="ai-mode" value="default" checked />
@@ -330,12 +355,12 @@
             </label>
             <label>
               模型名称（高级）
-              <input type="text" id="ai-model" spellcheck="false" placeholder="deepseek-ai/DeepSeek-V3.2" />
+              <input type="text" id="ai-model" spellcheck="false" placeholder="deepseek-v4-flash" />
             </label>
             <label>
               密钥（可选）
               <input type="password" id="ai-key" autocomplete="off" placeholder="接入自己的服务时才需要填写" />
-              <small>用于访问你自己的模型服务，请妥善保管。</small>
+              <small>仅在当前页面会话使用，刷新或关闭页面后不会保存。</small>
             </label>
             <div class="ai-config-actions">
               <button class="primary-button" type="submit">保存并启用</button>
@@ -356,11 +381,18 @@
         </div>
 
         <p class="model-badge" id="model-badge"></p>
+        <p class="ai-generated-note">内容由 AI 生成，仅供家庭财务规划参考。</p>
         <div class="chat-card" id="chat-log" aria-live="polite"></div>
 
         <form class="chat-input" id="chat-form">
-          <input id="chat-message" type="text" placeholder="问问家庭现金流、负债、养老或保险..." autocomplete="off" />
-          <button class="primary-button" type="submit">发送</button>
+          <div class="chat-compose">
+            <input id="chat-message" type="text" placeholder="问问家庭现金流、负债、养老或保险..." autocomplete="off" />
+            <button class="primary-button" type="submit">发送</button>
+          </div>
+          <label class="chat-consent">
+            <input id="chat-consent" type="checkbox" required />
+            <span>我已知悉：不要输入身份证号、银行卡号或账户密码。</span>
+          </label>
         </form>
       </section>
 
@@ -467,8 +499,18 @@
           <span>订阅</span>
         </button>
       </nav>
+
+      <footer class="legal-footer" aria-label="政策与联系信息">
+        <span>家稳云图项目组</span>
+        <nav aria-label="法律信息">
+          <a href="privacy.html">隐私政策</a>
+          <a href="terms.html">用户协议</a>
+          <a href="terms.html#risk">风险声明</a>
+        </nav>
+        <a href="mailto:1590192548cyl@gmail.com">联系我们</a>
+      </footer>
     </main>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=20260821-5"></script>
   </body>
 </html>
