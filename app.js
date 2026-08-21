@@ -1,6 +1,7 @@
 const DEFAULT_AI_ENDPOINT = "https://jiawen-ai.jiangying10111222.workers.dev";
 const DEFAULT_AI_MODEL = "deepseek-ai/DeepSeek-V3.2";
 const AI_CONFIG_KEY = "jiawen-ai-config-v2";
+const AI_CLIENT_ID_KEY = "jiawen-ai-client-id-v1";
 const OLD_DEFAULT_ENDPOINT = "https://holy-heart-40d2.1590192548cyl.workers.dev";
 const OLD_DEFAULT_MODEL = "Qwen/Qwen2.5-7B-Instruct";
 
@@ -13,7 +14,9 @@ const state = {
   report: null,
   aiConfig: {
     endpoint: DEFAULT_AI_ENDPOINT,
-    model: DEFAULT_AI_MODEL
+    model: DEFAULT_AI_MODEL,
+    apiKey: "",
+    mode: "default"
   }
 };
 
@@ -81,9 +84,9 @@ function loadAIConfig() {
         state.aiConfig = {
           endpoint: DEFAULT_AI_ENDPOINT,
           model: DEFAULT_AI_MODEL,
-          apiKey: "",
           mode: "default",
-          ...saved
+          ...saved,
+          apiKey: ""
         };
       }
     }
@@ -94,9 +97,24 @@ function loadAIConfig() {
 
 function saveAIConfig() {
   try {
-    localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(state.aiConfig));
+    const { apiKey: _sessionOnlyKey, ...safeConfig } = state.aiConfig;
+    localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(safeConfig));
   } catch (_) {
     // 隐私模式下可能无法写入，忽略
+  }
+}
+
+function getAIClientId() {
+  try {
+    const saved = localStorage.getItem(AI_CLIENT_ID_KEY);
+    if (saved) return saved;
+    const generated = typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `web-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    localStorage.setItem(AI_CLIENT_ID_KEY, generated);
+    return generated;
+  } catch (_) {
+    return "anonymous-browser";
   }
 }
 
@@ -292,19 +310,25 @@ async function callOpenSourceAgent(message, profile) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-  const systemPrompt = "你是家稳云图的家庭财务AI顾问。请用中文回答。你的服务范围包括：家庭财务健康评估、现金流管理、风险缓冲、教育金、养老金、保障缺口分析，以及金融常识、市场动态、指数与宏观政策解读、产品规则解释。回答要简洁、可执行。合规要求：不承诺收益、不代客理财、不预测短期走势、不推荐具体证券产品；解释市场动态时注明“仅供参考，市场有风险”。如果用户询问你的模型，可以说明你由家稳云图基于 DeepSeek-V3.2 提供支持。";
+  const systemPrompt = "你是家稳云图的家庭财务AI顾问。请用中文回答。你的服务范围包括：家庭财务健康评估、现金流管理、风险缓冲、教育金、养老金、保障缺口分析，以及金融常识、市场动态、指数与宏观政策解读、产品规则解释。回答要简洁、可执行。只输出易读纯文本，不使用Markdown符号，包括星号、井号、代码围栏和列表横线；需要分点时使用“1、”“2、”。合规要求：不承诺收益、不代客理财、不预测短期走势、不推荐具体证券产品；解释市场动态时注明“仅供参考，市场有风险”。如果用户询问你的模型，可以说明你由家稳云图基于 DeepSeek-V3.2 提供支持。";
   const userPrompt = `家庭画像：${profileBrief(profile)}\n用户问题：${message}`;
   const isOllama = endpoint.includes("/api/chat");
-  const payload = isOllama
+  const payload = state.aiConfig.mode === "default"
     ? {
+        message,
+        profile: profileBrief(profile),
+        clientId: getAIClientId()
+      }
+    : isOllama
+      ? {
         model,
         stream: false,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
         ]
-      }
-    : {
+        }
+      : {
         model,
         messages: [
           { role: "system", content: systemPrompt },
@@ -315,9 +339,6 @@ async function callOpenSourceAgent(message, profile) {
 
   try {
     const headers = { "Content-Type": "application/json" };
-    if (state.aiConfig.mode === "default" && apiKey) {
-      headers["x-api-key"] = apiKey;
-    }
     if (state.aiConfig.mode === "custom" && apiKey) {
       headers["Authorization"] = `Bearer ${apiKey}`;
     }
@@ -518,10 +539,23 @@ function goBack() {
   switchView(previousView, { skipHistory: true });
 }
 
+function cleanAgentReply(text) {
+  return String(text ?? "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/\*\*([\s\S]*?)\*\*/g, "$1")
+    .replace(/(^|[\s（(])\*([^*\n]+)\*(?=$|[\s，。；、）)])/g, "$1$2")
+    .replace(/^[\t ]*#{1,6}[\t ]*/gm, "")
+    .replace(/^[\t ]*[-*][\t ]+/gm, "• ")
+    .replace(/\*+/g, "")
+    .replace(/[\t ]+(?=\d+[.、][\t ]+)/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function addMessage(role, text) {
   const message = document.createElement("div");
   message.className = `message ${role}`;
-  message.textContent = text;
+  message.textContent = role === "agent" ? cleanAgentReply(text) : text;
   const log = document.getElementById("chat-log");
   log.appendChild(message);
   log.scrollTop = log.scrollHeight;
@@ -589,7 +623,8 @@ function bindEvents() {
     pending.classList.add("is-typing");
     try {
       const answer = await askAgent(message, state.profile);
-      pending.textContent = typeof answer === "string" ? answer : answer.reply || "已收到，我会结合家庭画像生成建议。";
+      const reply = typeof answer === "string" ? answer : answer.reply || "已收到，我会结合家庭画像生成建议。";
+      pending.textContent = cleanAgentReply(reply);
     } finally {
       pending.classList.remove("is-typing");
       sendButton.disabled = false;

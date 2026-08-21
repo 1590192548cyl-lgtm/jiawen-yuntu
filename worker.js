@@ -1,77 +1,188 @@
 const SILICONFLOW_URL = "https://api.siliconflow.cn/v1/chat/completions";
 const TAVILY_URL = "https://api.tavily.com/search";
+const TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 const DEFAULT_MODEL = "deepseek-ai/DeepSeek-V3.2";
+const MAX_REQUEST_BYTES = 24_000;
+const MAX_QUESTION_CHARS = 1_200;
+const MAX_PROFILE_CHARS = 4_000;
+const UPSTREAM_TIMEOUT_MS = 55_000;
 
 export default {
   async fetch(request, env) {
+    const url = new URL(request.url);
+
     if (request.method === "OPTIONS") {
-      return new Response(null, { headers: corsHeaders() });
+      if (!isOriginAllowed(request, env)) {
+        return json({ error: "Origin is not allowed" }, 403, request, env);
+      }
+      return new Response(null, { status: 204, headers: corsHeaders(request, env) });
     }
 
-    if (request.method !== "POST") {
-      return json({ error: "Only POST is supported" }, 405);
+    if (request.method === "GET" && url.pathname === "/health") {
+      return json({
+        ok: true,
+        service: "jiawen-ai",
+        model: env.MODEL_NAME || DEFAULT_MODEL,
+        searchEnabled: Boolean(env.TAVILY_API_KEY),
+        abuseProtection: Boolean(env.AI_RATE_LIMITER)
+      }, 200, request, env);
+    }
+
+    if (url.pathname !== "/" || request.method !== "POST") {
+      return json({ error: "Not found" }, 404, request, env);
+    }
+
+    if (!isOriginAllowed(request, env)) {
+      return json({ error: "Origin is not allowed" }, 403, request, env);
+    }
+
+    if (!request.headers.get("content-type")?.toLowerCase().includes("application/json")) {
+      return json({ error: "Content-Type must be application/json" }, 415, request, env);
+    }
+
+    const declaredLength = Number(request.headers.get("content-length") || 0);
+    if (declaredLength > MAX_REQUEST_BYTES) {
+      return json({ error: "Request body is too large" }, 413, request, env);
     }
 
     try {
-      const body = await request.json();
-      const model = body.model || DEFAULT_MODEL;
-      const clientKey = request.headers.get("x-api-key")?.trim();
-      const apiKey = clientKey || env.MODEL_API_KEY || "";
-      if (!apiKey) {
-        return json({ error: "No API key configured: set MODEL_API_KEY or send x-api-key" }, 500);
+      const body = await readJsonBody(request);
+      const question = extractUserQuestion(body).trim();
+      const profile = normalizeProfile(body.profile);
+      if (!question) {
+        return json({ error: "Question is required" }, 400, request, env);
       }
-      // 兼容任意 OpenAI-format 模型服务商：
-      // 设置环境变量 MODEL_API_BASE 即可切换（如 https://api.deepseek.com/v1/chat/completions）
+      if (question.length > MAX_QUESTION_CHARS || profile.length > MAX_PROFILE_CHARS) {
+        return json({ error: "Request content is too long" }, 413, request, env);
+      }
+
+      const rateLimitResult = await checkRateLimit(body.clientId, env);
+      if (!rateLimitResult.success) {
+        return json({ error: "请求过于频繁，请稍后再试。" }, 429, request, env, { "Retry-After": "60" });
+      }
+
+      const turnstileResult = await verifyTurnstile(body.turnstileToken, request, env);
+      if (!turnstileResult.success) {
+        return json({ error: "人机验证未通过，请刷新后重试。" }, 403, request, env);
+      }
+
+      const model = env.MODEL_NAME || DEFAULT_MODEL;
+      const apiKey = env.MODEL_API_KEY || "";
+      if (!apiKey) {
+        return json({ error: "AI service is not configured" }, 503, request, env);
+      }
+
       const apiBase = env.MODEL_API_BASE || SILICONFLOW_URL;
-      const searchQuery = extractUserQuestion(body);
-      const searchBundle = await maybeSearchWeb(searchQuery, env);
-      if (searchBundle.results.length && shouldSearch(searchQuery)) {
-        return json(searchOnlyResponse(searchQuery, searchBundle), 200);
+      const searchBundle = await maybeSearchWeb(question, env);
+      if (searchBundle.results.length && shouldSearch(question)) {
+        return json(searchOnlyResponse(question, searchBundle), 200, request, env);
       }
       const searchResults = searchBundle.results;
-      const messages = normalizeMessages(body, searchResults);
+      const messages = normalizeMessages(question, profile, searchResults);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
 
-      const upstream = await fetch(apiBase, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model,
-          messages,
-          temperature: body.temperature ?? 0.4,
-          stream: false
-        })
-      });
+      let upstream;
+      try {
+        upstream = await fetch(apiBase, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model,
+            messages,
+            temperature: 0.4,
+            max_tokens: Number(env.MODEL_MAX_TOKENS || 700),
+            stream: false
+          }),
+          signal: controller.signal
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
+      if (!upstream.ok) {
+        console.error("AI upstream error", upstream.status);
+        return json({ error: "AI 服务暂时不可用，请稍后再试。" }, 502, request, env);
+      }
 
       const data = await upstream.json();
       tidyModelSources(data, searchResults);
-      return json(data, upstream.status);
+      return json(data, 200, request, env);
     } catch (error) {
-      return json({ error: error.message || "AI proxy failed" }, 500);
+      if (error?.name === "AbortError") {
+        return json({ error: "AI 服务响应超时，请稍后再试。" }, 504, request, env);
+      }
+      if (error?.message === "INVALID_JSON") {
+        return json({ error: "Invalid JSON body" }, 400, request, env);
+      }
+      if (error?.name === "PayloadTooLargeError") {
+        return json({ error: "Request body is too large" }, 413, request, env);
+      }
+      console.error("AI proxy failed", error?.message || error);
+      return json({ error: "AI 服务暂时不可用，请稍后再试。" }, 500, request, env);
     }
   }
 };
 
-function normalizeMessages(body, searchResults = []) {
-  if (Array.isArray(body.messages) && body.messages.length) {
-    return withSearchContext(body.messages, searchResults);
+async function readJsonBody(request) {
+  const text = await request.text();
+  if (new TextEncoder().encode(text).byteLength > MAX_REQUEST_BYTES) {
+    const error = new Error("Request body is too large");
+    error.name = "PayloadTooLargeError";
+    throw error;
   }
+  try {
+    return JSON.parse(text);
+  } catch (_) {
+    throw new Error("INVALID_JSON");
+  }
+}
 
-  const profile = body.profile ? JSON.stringify(body.profile) : "用户尚未完成家庭建档。";
-  const message = body.message || "请给出家庭财务风险缓冲建议。";
+function normalizeProfile(profile) {
+  if (!profile) return "用户尚未完成家庭建档。";
+  return typeof profile === "string" ? profile : JSON.stringify(profile);
+}
 
+function normalizeMessages(message, profile, searchResults = []) {
   return withSearchContext([
     {
       role: "system",
-      content: "你是家稳云图的家庭财务AI顾问。请用中文回答。你的服务范围包括：家庭财务健康评估、现金流管理、风险缓冲、教育金、养老金、保障缺口分析，以及金融常识、市场动态、指数与宏观政策解读、产品规则解释。回答要简洁、可执行。合规要求：不承诺收益、不代客理财、不预测短期走势、不推荐具体证券产品；解释市场动态时注明“仅供参考，市场有风险”。如果用户询问你的模型，可以说明你由家稳云图基于 DeepSeek-V3.2 提供支持。"
+      content: "你是家稳云图的家庭财务AI顾问。请用中文回答。你的服务范围包括家庭财务健康评估、现金流管理、风险缓冲、教育金、养老金、保障缺口分析，以及金融常识和政策规则解释。回答要简洁、可执行，并区分事实、假设与建议。只输出易读纯文本，不使用Markdown符号，包括星号、井号、代码围栏和列表横线；需要分点时使用‘1、’‘2、’。合规要求：不承诺收益、不代客理财、不预测短期走势、不推荐具体证券产品；涉及市场信息时注明‘仅供参考，市场有风险’。不要索取或复述身份证号、银行卡号、账户密码、详细住址等敏感信息。"
     },
     {
       role: "user",
       content: `家庭画像：${profile}\n用户问题：${message}`
     }
   ], searchResults);
+}
+
+async function checkRateLimit(clientId, env) {
+  if (!env.AI_RATE_LIMITER) return { success: true };
+  const normalizedId = typeof clientId === "string" && /^[a-zA-Z0-9_-]{8,128}$/.test(clientId)
+    ? clientId
+    : "anonymous-browser";
+  return env.AI_RATE_LIMITER.limit({ key: normalizedId });
+}
+
+async function verifyTurnstile(token, request, env) {
+  if (!env.TURNSTILE_SECRET_KEY) return { success: true };
+  if (typeof token !== "string" || !token || token.length > 2_048) return { success: false };
+
+  const response = await fetch(TURNSTILE_VERIFY_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      secret: env.TURNSTILE_SECRET_KEY,
+      response: token,
+      remoteip: request.headers.get("CF-Connecting-IP") || undefined
+    })
+  });
+  if (!response.ok) return { success: false };
+  const result = await response.json();
+  return { success: Boolean(result.success) };
 }
 
 function withSearchContext(messages, searchResults) {
@@ -237,20 +348,40 @@ function siteName(url) {
   }
 }
 
-function json(data, status = 200) {
+function configuredOrigins(env) {
+  return String(env.ALLOWED_ORIGINS || "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
+function isOriginAllowed(request, env) {
+  const origin = request.headers.get("Origin");
+  if (!origin) return true;
+  const allowed = configuredOrigins(env);
+  return !allowed.length || allowed.includes(origin);
+}
+
+function json(data, status = 200, request, env, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       "Content-Type": "application/json",
-      ...corsHeaders()
+      ...corsHeaders(request, env),
+      ...extraHeaders
     }
   });
 }
 
-function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
+function corsHeaders(request, env) {
+  const origin = request?.headers.get("Origin") || "";
+  const allowed = configuredOrigins(env || {});
+  const allowOrigin = allowed.length ? (allowed.includes(origin) ? origin : "") : "*";
+  const headers = {
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, x-api-key"
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Vary": "Origin"
   };
+  if (allowOrigin) headers["Access-Control-Allow-Origin"] = allowOrigin;
+  return headers;
 }
