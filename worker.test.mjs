@@ -3,6 +3,38 @@ import assert from "node:assert/strict";
 import worker from "./worker.js";
 
 const originalFetch = globalThis.fetch;
+const tencentUrl = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get";
+
+function lastFridayDate() {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(now);
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const date = new Date(Date.UTC(Number(value.year), Number(value.month) - 1, Number(value.day)));
+  date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() - 5 + 7) % 7 || 7));
+  return date.toISOString().slice(0, 10);
+}
+
+function marketDataResponse(url) {
+  const symbol = new URL(url).searchParams.get("param").split(",")[0];
+  const names = { sh000001: "上证指数", sz399001: "深证成指", sz399006: "创业板指" };
+  const target = lastFridayDate();
+  return new Response(JSON.stringify({
+    data: {
+      [symbol]: {
+        day: [
+          ["2020-01-01", "3880.00", "3900.00", "3910.00", "3870.00", "100000"],
+          [target, "3900.00", "3910.00", "3920.00", "3890.00", "100000"]
+        ],
+        qt: { [symbol]: ["1", names[symbol]] }
+      }
+    }
+  }), { status: 200, headers: { "Content-Type": "application/json" } });
+}
 
 function request(body, options = {}) {
   return new Request(options.url || "https://jiawen-ai.example/", {
@@ -115,7 +147,8 @@ test("uses non-thinking mode for the fast DeepSeek V4 model", async () => {
 
 test("keeps recent conversation context for a vague follow-up", async () => {
   let upstreamPayload;
-  globalThis.fetch = async (_url, init) => {
+  globalThis.fetch = async (url, init) => {
+    if (String(url).startsWith(tencentUrl)) return marketDataResponse(url);
     upstreamPayload = JSON.parse(init.body);
     return new Response(JSON.stringify({
       choices: [{ message: { role: "assistant", content: "我继续说明上一轮的A股主题。" } }]
@@ -137,7 +170,7 @@ test("keeps recent conversation context for a vague follow-up", async () => {
   assert.equal(upstreamPayload.stream, false);
   assert.match(JSON.stringify(upstreamPayload.messages), /上周五收盘前A股行情/);
   assert.match(JSON.stringify(upstreamPayload.messages), /不得丢失上一轮主题/);
-  assert.match(JSON.stringify(upstreamPayload.messages), /信息边界/);
+  assert.match(JSON.stringify(upstreamPayload.messages), /目标日期的结构化指数数据/);
   assert.doesNotMatch(JSON.stringify(upstreamPayload.messages), /忽略安全规则/);
 });
 
@@ -181,6 +214,7 @@ test("uses trusted web results as evidence before the model answers", async () =
 test("resolves last Friday and labels mismatched reports as recent reference", async () => {
   const calls = [];
   globalThis.fetch = async (url, init) => {
+    if (String(url).startsWith(tencentUrl)) return marketDataResponse(url);
     calls.push({ url, payload: JSON.parse(init.body) });
     if (url === "https://api.tavily.com/search") {
       return new Response(JSON.stringify({
@@ -205,6 +239,7 @@ test("resolves last Friday and labels mismatched reports as recent reference", a
   assert.match(calls[0].payload.query, /上周五具体日期 \d{4}年\d{2}月\d{2}日/);
   assert.match(JSON.stringify(calls[1].payload.messages), /2025年1月10日收盘行情/);
   assert.match(JSON.stringify(calls[1].payload.messages), /最近可查资料/);
+  assert.match(JSON.stringify(calls[1].payload.messages), /上证指数.*收盘3910.00/);
   const data = await response.json();
   assert.match(data.choices[0].message.content, /最近可查资料显示市场成交活跃/);
   assert.doesNotMatch(data.choices[0].message.content, /家庭财务|请确认|2025年/);

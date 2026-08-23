@@ -1,5 +1,6 @@
 const SILICONFLOW_URL = "https://api.siliconflow.cn/v1/chat/completions";
 const TAVILY_URL = "https://api.tavily.com/search";
+const TENCENT_KLINE_URL = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get";
 const TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 const DEFAULT_MODEL = "deepseek-v4-flash";
 const MAX_REQUEST_BYTES = 24_000;
@@ -79,9 +80,12 @@ export default {
       const apiBase = env.MODEL_API_BASE || SILICONFLOW_URL;
       const searchQuery = resolveSearchQuery(question, history);
       const searchRequested = shouldSearch(searchQuery);
-      const searchBundle = await maybeSearchWeb(searchQuery, env);
+      const [searchBundle, marketData] = await Promise.all([
+        maybeSearchWeb(searchQuery, env),
+        maybeFetchMarketData(searchQuery)
+      ]);
       const searchResults = searchBundle.results;
-      const messages = normalizeMessages(question, profile, history, searchResults, searchRequested, searchQuery);
+      const messages = normalizeMessages(question, profile, history, searchResults, searchRequested, searchQuery, marketData);
       const shouldStream = stream && !searchRequested;
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
@@ -128,7 +132,7 @@ export default {
       }
 
       const data = await upstream.json();
-      tidyModelSources(data, searchResults, searchQuery);
+      tidyModelSources(data, searchResults, searchQuery, marketData);
       return json(data, 200, request, env);
     } catch (error) {
       if (error?.name === "AbortError") {
@@ -179,14 +183,14 @@ function normalizeHistory(history) {
   return normalized;
 }
 
-function normalizeMessages(message, profile, history = [], searchResults = [], searchAttempted = false, searchQuery = "") {
+function normalizeMessages(message, profile, history = [], searchResults = [], searchAttempted = false, searchQuery = "", marketData = []) {
   const messages = withSearchContext([
     {
       role: "system",
       content: "你是家稳云图的家庭财务AI顾问。请用中文回答。你的服务范围包括家庭财务健康评估、现金流管理、风险缓冲、教育金、养老金、保障缺口分析，以及金融常识和政策规则解释。必须结合对话历史理解‘具体说说’‘为什么’‘继续’等追问，不得丢失上一轮主题或突然重新介绍服务。用户在讨论市场时，除非主动询问个人配置，否则不要把话题转向家庭建档、教育金或养老金。先直接回答当前问题，再给依据；区分已核实事实、合理推断与建议。市场分析要说明日期和资料范围，资料不足时明确说无法核实，不编造点位、涨跌幅、板块表现或时效性结论。回答不超过4个分点，每点不超过2句，总长度尽量控制在450中文字以内；不要在每个分点重复相同的免责提醒，必须完整收尾。只输出易读纯文本，不使用Markdown符号，包括星号、井号、代码围栏和列表横线；需要分点时使用‘1、’‘2、’。合规要求：不承诺收益、不代客理财、不预测短期走势、不推荐具体证券产品；涉及市场信息时注明‘仅供参考，市场有风险’。不要索取或复述身份证号、银行卡号、账户密码、详细住址等敏感信息。"
     },
     ...history
-  ], searchResults, searchAttempted, searchQuery);
+  ], searchResults, searchAttempted, searchQuery, marketData);
   messages.push({
     role: "user",
     content: `家庭画像：${profile}\n用户问题：${message}`
@@ -220,14 +224,21 @@ async function verifyTurnstile(token, request, env) {
   return { success: Boolean(result.success) };
 }
 
-function withSearchContext(messages, searchResults, searchAttempted = false, searchQuery = "") {
+function withSearchContext(messages, searchResults, searchAttempted = false, searchQuery = "", marketData = []) {
+  const marketContext = marketData.length ? {
+    role: "system",
+    content: `以下是腾讯行情公开日线接口返回的目标交易日结构化指数数据，日期已经程序校验，可作为行情事实使用。涨跌幅由相邻交易日收盘价计算；有成交额时单位已换算为亿元。不要编造数据中没有的上涨家数、北向资金或板块表现。回答末尾将“腾讯行情”列入资料参考。\n\n${marketData.map((item) => `${item.name}：日期${item.date}，开盘${item.open}，收盘${item.close}，最高${item.high}，最低${item.low}，涨跌幅${item.changePercent}%${item.amountYi ? `，成交额${item.amountYi}亿元` : ""}`).join("\n")}`
+  } : null;
   if (!searchResults.length) {
-    if (!searchAttempted) return messages;
+    if (!searchAttempted) return marketContext ? [...messages, marketContext] : messages;
     return [
       ...messages,
+      ...(marketContext ? [marketContext] : []),
       {
         role: "system",
-        content: "本次联网检索没有返回足够可靠的资料。不要反问用户已经明确的话题，也不要重复上一轮原话；请直接说明信息边界，并结合当前问题给出有用的分析框架、判断方法或下一步。不得用模型记忆冒充当期点位和涨跌幅。"
+        content: marketContext
+          ? "补充新闻检索没有返回足够可靠的资料，但已有目标日期的结构化指数数据。请直接基于这些数据完成大盘复盘，并明确板块、上涨家数等细节暂缺；不要拒绝回答。"
+          : "本次联网检索没有返回足够可靠的资料。不要反问用户已经明确的话题，也不要重复上一轮原话；请直接说明信息边界，并结合当前问题给出有用的分析框架、判断方法或下一步。不得用模型记忆冒充当期点位和涨跌幅。"
       }
     ];
   }
@@ -245,8 +256,72 @@ function withSearchContext(messages, searchResults, searchAttempted = false, sea
     {
       role: "system",
       content: `以下是本次联网检索到的候选资料，不是已经确认的事实。只能使用能从摘要中直接支持的内容，不得把无关页面、旧闻或跨市场资料当作当期A股事实，也不得用少数个股数据推断整个大盘涨跌或市场主线。${dateInstruction}先直接回答用户的问题，再交代资料日期和可验证范围；资料不能支持精确点位时，仍应给出基于已有资料的趋势、结构和风险分析，不要只回复“无法核实”。不要直接输出URL。回答末尾用“资料参考：”简要列出实际采用的来源名称或站点。\n\n${context}`
-    }
+    },
+    ...(marketContext ? [{
+      ...marketContext,
+      content: `${marketContext.content}\n\n优先级说明：这些数据与用户要求的日期完全匹配。若前面的新闻摘要日期不同或与此冲突，必须以本条结构化指数数据为准，并直接报告三大指数的真实收盘点位与涨跌幅。`
+    }] : [])
   ];
+}
+
+async function maybeFetchMarketData(query) {
+  const date = resolveRelativeDate(query);
+  if (!date || !isMarketSearchQuery(query)) return [];
+  const targetDate = `${date.year}-${date.month}-${date.day}`;
+  const start = new Date(Date.UTC(date.year, Number(date.month) - 1, Number(date.day)));
+  start.setUTCDate(start.getUTCDate() - 14);
+  const startDate = start.toISOString().slice(0, 10);
+  const indexes = [
+    { symbol: "sh000001", name: "上证指数" },
+    { symbol: "sz399001", name: "深证成指" },
+    { symbol: "sz399006", name: "创业板指" }
+  ];
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8_000);
+  try {
+    const responses = await Promise.all(indexes.map(({ symbol }) => {
+      const url = new URL(TENCENT_KLINE_URL);
+      url.searchParams.set("param", `${symbol},day,${startDate},${targetDate},20,qfq`);
+      return fetch(url, {
+        signal: controller.signal,
+        headers: {
+          "User-Agent": "Mozilla/5.0",
+          Referer: "https://gu.qq.com/"
+        }
+      });
+    }));
+    const payloads = await Promise.all(responses.map((response) => response.ok ? response.json() : null));
+    return payloads.map((payload, index) => {
+      const { symbol, name } = indexes[index];
+      const node = payload?.data?.[symbol];
+      const rows = node?.day || node?.qfqday || [];
+      const rowIndex = rows.findIndex((row) => row?.[0] === targetDate);
+      if (rowIndex < 0) return null;
+      const row = rows[rowIndex];
+      const previousClose = Number(rows[rowIndex - 1]?.[2]);
+      const closeNumber = Number(row[2]);
+      const changePercent = previousClose
+        ? (((closeNumber - previousClose) / previousClose) * 100).toFixed(2)
+        : null;
+      const quote = node?.qt?.[symbol];
+      const quoteMatchesDate = String(quote?.[30] || "").startsWith(targetDate.replaceAll("-", ""));
+      const rawAmount = quoteMatchesDate ? Number(String(quote?.[35] || "").split("/")[2]) : 0;
+      return {
+        name: quote?.[1] || name,
+        date: row[0],
+        open: row[1],
+        close: row[2],
+        high: row[3],
+        low: row[4],
+        changePercent: changePercent || (quoteMatchesDate ? quote?.[32] : "无法计算"),
+        amountYi: rawAmount ? (rawAmount / 100_000_000).toFixed(2) : ""
+      };
+    }).filter(Boolean);
+  } catch (_) {
+    return [];
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 function extractUserQuestion(body) {
@@ -397,14 +472,20 @@ function inferSearchTopic(query) {
   return "general";
 }
 
-function tidyModelSources(data, searchResults, searchQuery = "") {
+function tidyModelSources(data, searchResults, searchQuery = "", marketData = []) {
   const message = data.choices?.[0]?.message;
   if (!message?.content) return;
 
-  if (!searchResults.length) return;
+  if (!searchResults.length) {
+    if (marketData.length && !/资料参考：|来源：/.test(message.content)) {
+      message.content = `${message.content.trim()}\n\n资料参考：腾讯行情`;
+    }
+    return;
+  }
 
   let content = message.content.replace(/https?:\/\/[^\s，。；、)）\]]+/g, "").replace(/\n{3,}/g, "\n\n").trim();
   if (isMarketSearchQuery(searchQuery)) {
+    content = content.replace(/(?:\d+、)?提示：单日行情不构成趋势判断依据，家庭资产配置应[^。]*。/g, "风险提示：单日行情不构成趋势判断依据。");
     const asksForPersonalPlan = /(我的|持仓|账户|仓位|个人配置|家庭配置|怎么应对)/.test(searchQuery);
     const currentYear = new Intl.DateTimeFormat("en", { timeZone: "Asia/Shanghai", year: "numeric" }).format(new Date());
     const hasCurrentEvidence = searchResults.some((item) => `${item.title} ${item.content}`.includes(currentYear));
@@ -419,7 +500,7 @@ function tidyModelSources(data, searchResults, searchQuery = "") {
       content = `我没有检索到足以核实最近交易日具体行情的当期权威数据，下面只提供分析框架。\n\n${content}`;
     }
   }
-  const sourceLine = compactSources(searchResults);
+  const sourceLine = compactSources(searchResults, marketData.length > 0);
   if (/资料参考：|来源：/.test(content)) {
     content = content.replace(/(资料参考：|来源：)[\s\S]*$/g, sourceLine);
   } else {
@@ -428,8 +509,8 @@ function tidyModelSources(data, searchResults, searchQuery = "") {
   message.content = content;
 }
 
-function compactSources(searchResults) {
-  const names = [];
+function compactSources(searchResults, includeMarketData = false) {
+  const names = includeMarketData ? ["腾讯行情"] : [];
   for (const item of searchResults) {
     const name = siteName(item.url) || item.site || item.title;
     if (name && !names.includes(name)) names.push(name);
