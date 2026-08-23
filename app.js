@@ -10,6 +10,7 @@ const state = {
   hasProfile: false,
   currentView: "welcome",
   history: [],
+  aiHistory: [],
   profile: null,
   score: null,
   report: null,
@@ -345,7 +346,14 @@ async function readStreamingReply(response, onChunk) {
   return reply;
 }
 
-async function callOpenSourceAgent(message, profile, onChunk) {
+function recentAIHistory() {
+  return state.aiHistory.slice(-8).map((item) => ({
+    role: item.role,
+    content: String(item.content || "").slice(0, 1_500)
+  }));
+}
+
+async function callOpenSourceAgent(message, profile, history, onChunk) {
   const endpoint = state.aiConfig.endpoint.trim();
   const model = state.aiConfig.model.trim();
   const apiKey = (state.aiConfig.apiKey || "").trim();
@@ -358,9 +366,10 @@ async function callOpenSourceAgent(message, profile, onChunk) {
   const conciseMessage = `${message}\n\n回答要求：除非我明确要求详细分析，否则请控制在220字以内，先给结论，最多列4点，不要重复介绍服务范围。`;
   const isOllama = endpoint.includes("/api/chat");
   const payload = state.aiConfig.mode === "default"
-    ? {
+      ? {
         message: conciseMessage,
         profile: profileBrief(profile),
+        history,
         clientId: getAIClientId(),
         stream: true
       }
@@ -370,6 +379,7 @@ async function callOpenSourceAgent(message, profile, onChunk) {
         stream: false,
         messages: [
           { role: "system", content: systemPrompt },
+          ...history,
           { role: "user", content: userPrompt }
         ]
         }
@@ -377,6 +387,7 @@ async function callOpenSourceAgent(message, profile, onChunk) {
         model,
         messages: [
           { role: "system", content: systemPrompt },
+          ...history,
           { role: "user", content: userPrompt }
         ],
         temperature: 0.4
@@ -418,9 +429,9 @@ async function callOpenSourceAgent(message, profile, onChunk) {
   }
 }
 
-async function askAgent(message, profile, onChunk) {
+async function askAgent(message, profile, history, onChunk) {
   try {
-    const agentReply = await callOpenSourceAgent(message, profile, onChunk);
+    const agentReply = await callOpenSourceAgent(message, profile, history, onChunk);
     if (agentReply) return agentReply;
   } catch (error) {
     return `联网 AI 暂时没有返回（${error.message}）。你可以稍后再试，或到“AI 服务详情”中检查设置。下面先用本地规则给你一个兜底建议：${localRuleAgent(message, profile)}`;
@@ -667,16 +678,23 @@ function bindEvents() {
     form.dataset.busy = "1";
     sendButton.disabled = true;
     input.value = "";
+    const conversationHistory = recentAIHistory();
     addMessage("user", message);
     const pending = addMessage("agent", "正在连接联网AI并分析，请稍等...");
     pending.classList.add("is-typing");
     try {
-      const answer = await askAgent(message, state.profile, (partialReply) => {
+      const answer = await askAgent(message, state.profile, conversationHistory, (partialReply) => {
         pending.textContent = cleanAgentReply(partialReply);
         pending.classList.remove("is-typing");
       });
       const reply = typeof answer === "string" ? answer : answer.reply || "已收到，我会结合家庭画像生成建议。";
-      pending.textContent = cleanAgentReply(reply);
+      const cleanedReply = cleanAgentReply(reply);
+      pending.textContent = cleanedReply;
+      state.aiHistory.push(
+        { role: "user", content: message },
+        { role: "assistant", content: cleanedReply }
+      );
+      state.aiHistory = state.aiHistory.slice(-8);
     } finally {
       pending.classList.remove("is-typing");
       sendButton.disabled = false;
