@@ -137,7 +137,7 @@ test("keeps recent conversation context for a vague follow-up", async () => {
   assert.equal(upstreamPayload.stream, false);
   assert.match(JSON.stringify(upstreamPayload.messages), /上周五收盘前A股行情/);
   assert.match(JSON.stringify(upstreamPayload.messages), /不得丢失上一轮主题/);
-  assert.match(JSON.stringify(upstreamPayload.messages), /暂时无法核实/);
+  assert.match(JSON.stringify(upstreamPayload.messages), /信息边界/);
   assert.doesNotMatch(JSON.stringify(upstreamPayload.messages), /忽略安全规则/);
 });
 
@@ -178,7 +178,7 @@ test("uses trusted web results as evidence before the model answers", async () =
   assert.doesNotMatch(data.choices[0].message.content, /2025年|家庭建档/);
 });
 
-test("resolves last Friday to an exact date and rejects mismatched old reports", async () => {
+test("resolves last Friday and labels mismatched reports as recent reference", async () => {
   const calls = [];
   globalThis.fetch = async (url, init) => {
     calls.push({ url, payload: JSON.parse(init.body) });
@@ -192,7 +192,7 @@ test("resolves last Friday to an exact date and rejects mismatched old reports",
       }), { status: 200, headers: { "Content-Type": "application/json" } });
     }
     return new Response(JSON.stringify({
-      choices: [{ message: { role: "assistant", content: "无法核实目标日期行情。" } }]
+      choices: [{ message: { role: "assistant", content: "最近可查资料显示市场成交活跃，但不能等同于目标日行情。" } }]
     }), { status: 200, headers: { "Content-Type": "application/json" } });
   };
 
@@ -203,11 +203,11 @@ test("resolves last Friday to an exact date and rejects mismatched old reports",
 
   assert.equal(response.status, 200);
   assert.match(calls[0].payload.query, /上周五具体日期 \d{4}年\d{2}月\d{2}日/);
-  assert.doesNotMatch(JSON.stringify(calls[1].payload.messages), /2025年1月10日收盘行情/);
-  assert.match(JSON.stringify(calls[1].payload.messages), /无法核实具体时点/);
+  assert.match(JSON.stringify(calls[1].payload.messages), /2025年1月10日收盘行情/);
+  assert.match(JSON.stringify(calls[1].payload.messages), /最近可查资料/);
   const data = await response.json();
-  assert.match(data.choices[0].message.content, /继续追问.*A股行情/);
-  assert.doesNotMatch(data.choices[0].message.content, /家庭财务|请确认/);
+  assert.match(data.choices[0].message.content, /最近可查资料显示市场成交活跃/);
+  assert.doesNotMatch(data.choices[0].message.content, /家庭财务|请确认|2025年/);
 });
 
 test("rejects disallowed origins before calling upstream", async () => {

@@ -81,7 +81,7 @@ export default {
       const searchRequested = shouldSearch(searchQuery);
       const searchBundle = await maybeSearchWeb(searchQuery, env);
       const searchResults = searchBundle.results;
-      const messages = normalizeMessages(question, profile, history, searchResults, searchRequested);
+      const messages = normalizeMessages(question, profile, history, searchResults, searchRequested, searchQuery);
       const shouldStream = stream && !searchRequested;
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
@@ -179,14 +179,14 @@ function normalizeHistory(history) {
   return normalized;
 }
 
-function normalizeMessages(message, profile, history = [], searchResults = [], searchAttempted = false) {
+function normalizeMessages(message, profile, history = [], searchResults = [], searchAttempted = false, searchQuery = "") {
   const messages = withSearchContext([
     {
       role: "system",
       content: "你是家稳云图的家庭财务AI顾问。请用中文回答。你的服务范围包括家庭财务健康评估、现金流管理、风险缓冲、教育金、养老金、保障缺口分析，以及金融常识和政策规则解释。必须结合对话历史理解‘具体说说’‘为什么’‘继续’等追问，不得丢失上一轮主题或突然重新介绍服务。用户在讨论市场时，除非主动询问个人配置，否则不要把话题转向家庭建档、教育金或养老金。先直接回答当前问题，再给依据；区分已核实事实、合理推断与建议。市场分析要说明日期和资料范围，资料不足时明确说无法核实，不编造点位、涨跌幅、板块表现或时效性结论。回答不超过4个分点，每点不超过2句，总长度尽量控制在450中文字以内；不要在每个分点重复相同的免责提醒，必须完整收尾。只输出易读纯文本，不使用Markdown符号，包括星号、井号、代码围栏和列表横线；需要分点时使用‘1、’‘2、’。合规要求：不承诺收益、不代客理财、不预测短期走势、不推荐具体证券产品；涉及市场信息时注明‘仅供参考，市场有风险’。不要索取或复述身份证号、银行卡号、账户密码、详细住址等敏感信息。"
     },
     ...history
-  ], searchResults, searchAttempted);
+  ], searchResults, searchAttempted, searchQuery);
   messages.push({
     role: "user",
     content: `家庭画像：${profile}\n用户问题：${message}`
@@ -220,14 +220,14 @@ async function verifyTurnstile(token, request, env) {
   return { success: Boolean(result.success) };
 }
 
-function withSearchContext(messages, searchResults, searchAttempted = false) {
+function withSearchContext(messages, searchResults, searchAttempted = false, searchQuery = "") {
   if (!searchResults.length) {
     if (!searchAttempted) return messages;
     return [
       ...messages,
       {
         role: "system",
-        content: "本次联网检索没有返回足够可靠的资料。请明确告诉用户暂时无法核实具体时点、涨跌幅或实时行情，可以提供分析框架，但不得用模型记忆冒充当期事实。"
+        content: "本次联网检索没有返回足够可靠的资料。不要反问用户已经明确的话题，也不要重复上一轮原话；请直接说明信息边界，并结合当前问题给出有用的分析框架、判断方法或下一步。不得用模型记忆冒充当期点位和涨跌幅。"
       }
     ];
   }
@@ -235,12 +235,16 @@ function withSearchContext(messages, searchResults, searchAttempted = false) {
   const context = searchResults.map((item, index) => {
     return `${index + 1}. ${item.title}\n站点: ${item.site}\n摘要: ${item.content}`;
   }).join("\n\n");
+  const requestedDate = requestedRelativeDateLabel(searchQuery);
+  const dateInstruction = requestedDate
+    ? `用户所说的“上周五”指${requestedDate}。如果候选资料不是该日，也可以作为“最近可查资料”辅助分析，但必须清楚标注其实际日期，不得冒充${requestedDate}的行情。`
+    : "";
 
   return [
     ...messages,
     {
       role: "system",
-      content: `以下是本次联网检索到的候选资料，不是已经确认的事实。只能使用能从摘要中直接支持的内容，不得把无关页面、旧闻或跨市场资料当作当期A股事实。先交代资料日期和可验证范围；若摘要无法支持用户要求的具体结论，就明确说‘现有资料不足以核实’。不要直接输出URL。回答末尾用“资料参考：”简要列出实际采用的来源名称或站点。\n\n${context}`
+      content: `以下是本次联网检索到的候选资料，不是已经确认的事实。只能使用能从摘要中直接支持的内容，不得把无关页面、旧闻或跨市场资料当作当期A股事实，也不得用少数个股数据推断整个大盘涨跌或市场主线。${dateInstruction}先直接回答用户的问题，再交代资料日期和可验证范围；资料不能支持精确点位时，仍应给出基于已有资料的趋势、结构和风险分析，不要只回复“无法核实”。不要直接输出URL。回答末尾用“资料参考：”简要列出实际采用的来源名称或站点。\n\n${context}`
     }
   ];
 }
@@ -275,8 +279,11 @@ async function maybeSearchWeb(query, env) {
     const timeoutId = setTimeout(() => controller.abort(), 9000);
     const trustedDomains = trustedSearchDomains(query);
     const dateHint = resolveRelativeDateHint(query);
+    const marketTerms = isMarketSearchQuery(query)
+      ? "上证指数 深证成指 创业板指 两市成交额 上涨家数 板块涨跌"
+      : "";
     const searchPayload = {
-      query: `${currentChinaDate()} ${dateHint} ${query} 中文 收盘复盘 权威来源`.replace(/\s+/g, " ").trim(),
+      query: `${currentChinaDate()} ${dateHint} ${query} ${marketTerms} 中文 收盘复盘 权威来源`.replace(/\s+/g, " ").trim(),
       topic: inferSearchTopic(query),
       search_depth: "basic",
       max_results: 5,
@@ -306,8 +313,7 @@ async function maybeSearchWeb(query, env) {
       url: item.url || "",
       site: siteName(item.url),
       content: item.content || ""
-    })).filter((item) => item.url && item.content)
-      .filter((item) => matchesRequestedRelativeDate(item, query));
+    })).filter((item) => item.url && item.content);
     return { answer: data.answer || "", results };
   } catch (_) {
     return { answer: "", results: [] };
@@ -330,6 +336,11 @@ function resolveRelativeDateHint(query, now = new Date()) {
   return `上周五具体日期 ${date.year}年${date.month}月${date.day}日`;
 }
 
+function requestedRelativeDateLabel(query) {
+  const date = resolveRelativeDate(query);
+  return date ? `${date.year}年${Number(date.month)}月${Number(date.day)}日` : "";
+}
+
 function resolveRelativeDate(query, now = new Date()) {
   if (!/上周五/.test(query)) return null;
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -348,22 +359,6 @@ function resolveRelativeDate(query, now = new Date()) {
   return { year, month, day };
 }
 
-function matchesRequestedRelativeDate(item, query) {
-  const date = resolveRelativeDate(query);
-  if (!date) return true;
-  const month = Number(date.month);
-  const day = Number(date.day);
-  const text = `${item.title} ${item.content} ${item.url}`;
-  return [
-    `${date.year}年${month}月${day}日`,
-    `${date.year}年${date.month}月${date.day}日`,
-    `${date.year}-${date.month}-${date.day}`,
-    `${date.year}/${date.month}/${date.day}`,
-    `${month}月${day}日`,
-    `${date.month}月${date.day}日`
-  ].some((token) => text.includes(token));
-}
-
 function trustedSearchDomains(query) {
   if (!isMarketSearchQuery(query)) return [];
   return [
@@ -375,7 +370,11 @@ function trustedSearchDomains(query) {
     "gov.cn",
     "xinhuanet.com",
     "cs.com.cn",
-    "cnstock.com"
+    "cnstock.com",
+    "stcn.com",
+    "cls.cn",
+    "eastmoney.com",
+    "finance.sina.com.cn"
   ];
 }
 
@@ -401,13 +400,6 @@ function inferSearchTopic(query) {
 function tidyModelSources(data, searchResults, searchQuery = "") {
   const message = data.choices?.[0]?.message;
   if (!message?.content) return;
-
-  if (!searchResults.length && isMarketSearchQuery(searchQuery) && isTimeSensitiveSearchQuery(searchQuery)) {
-    const date = resolveRelativeDate(searchQuery);
-    const target = date ? `${date.year}年${Number(date.month)}月${Number(date.day)}日` : "目标交易日";
-    message.content = `我理解你是在继续追问${target}的A股行情。目前联网检索没有找到与该日期完全匹配、足以相互核验的权威收盘数据，因此我不能可靠复盘具体点位、涨跌幅或领涨板块。\n\n可以先按三个维度判断：1、指数与成交额是否同步变化；2、上涨家数和主线板块能否反映真实市场广度；3、北向、融资及政策消息是否支持行情延续。拿到交易所或主流财经媒体的当日收盘数据后，我可以再逐项解读。仅供参考，市场有风险。`;
-    return;
-  }
 
   if (!searchResults.length) return;
 
@@ -455,6 +447,10 @@ function siteName(url) {
     if (host.includes("csrc.gov.cn")) return "中国证监会官网";
     if (host.includes("cs.com.cn")) return "中国证券报";
     if (host.includes("cnstock.com")) return "上海证券报";
+    if (host.includes("finance.sina.com.cn")) return "新浪财经";
+    if (host.includes("eastmoney.com")) return "东方财富";
+    if (host.includes("stcn.com")) return "证券时报";
+    if (host.includes("cls.cn")) return "财联社";
     if (host.includes("xinhuanet.com")) return "新华网";
     if (host.includes("chinamoney.com.cn")) return "全国银行间同业拆借中心";
     if (host.includes("gov.cn")) return "中国政府网";
