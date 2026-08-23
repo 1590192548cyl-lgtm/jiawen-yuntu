@@ -31,7 +31,7 @@ export default {
       }, 200, request, env);
     }
 
-    if (url.pathname !== "/" || request.method !== "POST") {
+    if (!["/", "/api/ai"].includes(url.pathname) || request.method !== "POST") {
       return json({ error: "Not found" }, 404, request, env);
     }
 

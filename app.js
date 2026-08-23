@@ -1,4 +1,7 @@
-const DEFAULT_AI_ENDPOINT = "https://jiawen-ai.1590192548cyl.workers.dev";
+const DIRECT_WORKER_ENDPOINT = "https://jiawen-ai.1590192548cyl.workers.dev";
+const DEFAULT_AI_ENDPOINT = ["http:", "https:"].includes(window.location.protocol)
+  ? `${window.location.origin}/api/ai`
+  : "https://jiawen-yuntu-preview.pages.dev/api/ai";
 const DEFAULT_AI_MODEL = "deepseek-v4-flash";
 const AI_CONFIG_KEY = "jiawen-ai-config-v2";
 const AI_CLIENT_ID_KEY = "jiawen-ai-client-id-v1";
@@ -84,7 +87,7 @@ function loadAIConfig() {
       const isStaleDefault = (
         saved.endpoint === OLD_DEFAULT_ENDPOINT && saved.model === OLD_DEFAULT_MODEL
       ) || (
-        saved.mode === "default" && saved.endpoint === PREVIOUS_PLATFORM_ENDPOINT
+        saved.mode === "default" && [PREVIOUS_PLATFORM_ENDPOINT, DIRECT_WORKER_ENDPOINT].includes(saved.endpoint)
       );
       if (!isStaleDefault) {
         state.aiConfig = {
